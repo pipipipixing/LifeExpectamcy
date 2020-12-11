@@ -1,0 +1,391 @@
+---
+title: "Group44 project Life Expectancy"
+author: 'Kaiyan Zhu_B00797725,Jiaxing Huang_B00753848,Xinyu(Louis) Lu_B00799504,sun yu_B00792609'
+date: "2020/12/11"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '6'
+  html_notebook: default
+  pdf_document:
+    toc: yes
+    toc_depth: '6'
+    number_sections: true
+header-includes:
+- \usepackage[default]{sourcesanspro}
+- \usepackage[T1]{fontenc}
+mainfont: Arial
+fontsize: 12pt
+spacing: single
+subtitle: 
+urlcolor: blue
+---
+\newpage
+# Abstract 
+
+The level of life expectancy varies across the countries and with that, the variation in the expenditure on health, influenced by the level of Gross Domestic Product attained by a country. The health care provided from birth of an infant, in terms of the immunization and vaccination at the early age determine the mortality rate. The health care provided to the entire population determines the mortality rate. The analysis of the demographic, socio-economic, immunization and mortality rates within countries to assess their influence on the life expectancy is important for policy making process.
+
+
+\newpage
+# Introduction
+
+An analysis of the life expectancy, over periods of time across the developed and developing countries is undertaken herein. The focus is on how the other variables within the data provided relate with life expectancy. Trends in the life expectancy across the years are undertaken based on the status of the countries and/or under any other suitable variable within our data. Visualization to assess the distribution of our variable of interest and how it relates to other variables are made and interpreted. The interpretations are further used to support our initial assumptions developed within the analysis stages. A regression model is fit and an analysis of variance on the model is made to assess the effectiveness of the variables in predicting the life expectancy. Step analysis model is made to assess the significant variables and compared with other models to check for any significant difference,
+
+\newpage
+# Data Description
+
+The **Life Expectancy (WHO)** data set was obtained from the [Kaggle](https://www.kaggle.com/kumarajarshi/life-expectancy-who).
+
+## Data loading and Required libraries
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(readr)
+
+Life_Expectancy_Data <- read_csv("D:/STAT3340/project/Data.csv")
+```
+
+## Data Description
+
+### General layout
+
+The `Country`, `Year` and `Status` variables are converted to factors for ease of analysis due to their distinct nature. When the data is passed as an argument to `dplyr::glimpse()` function, we are able to see the general layout of the data attributes. 
+
+The data contains 2938 instances, 22 attributes.
+
+```{r}
+dim(Life_Expectancy_Data)
+colnames(Life_Expectancy_Data)
+```
+
+There are categorical attributes as well as numeric attributes within. The data covers 193 countries, with the countrie classified as either `Developed` or `Developing` under the `Status` variable. The period under which the data is considered is from the year 2001 through to 2015.
+
+```{r, message=FALSE, warning=FALSE}
+#Unique values
+length(unique(Life_Expectancy_Data$Country))
+unique(Life_Expectancy_Data$Year)
+unique(Life_Expectancy_Data$Status)
+Life_Expectancy_Data$Country <- as.factor(Life_Expectancy_Data$Country)
+Life_Expectancy_Data$Year <- as.factor(Life_Expectancy_Data$Year)
+Life_Expectancy_Data$Status <- as.factor(Life_Expectancy_Data$Status)
+#Glimpse of Structure
+glimpse(Life_Expectancy_Data)
+```
+
+\newpage
+### Summary Statistics
+
+The summary statistic provides the count for categoric variables, the minimum, maximum, 1st quantile, median, mean, 3rd quantile and the number of missing data points for numeric variables.
+
+```{r, message=FALSE, warning=FALSE}
+options(scipen = 999)
+summary(Life_Expectancy_Data[,c(-1,-2)])
+```
+
+The `Population` variable contains the highest number of missing values followed by the `Hepatitis B` variable.
+
+### Missing values
+
+```{r}
+#Missing values
+sum(is.na(Life_Expectancy_Data))
+sum(is.na(Life_Expectancy_Data$`Life expectancy`))
+sum(is.na(Life_Expectancy_Data$Population))
+```
+
+There are `2563` missing values in the whole data, with `10` being within the `Life Expectancy` attribute and `652` within the `Population` which we can say may be due to uncollected data.
+
+\newpage
+## Correlation Analysis and Correlation Plots
+
+The linear relation among the variable in our data is found and the correlation table plotted.
+
+```{r, message=FALSE, warning=FALSE, fig.cap="Correlation Plot"}
+#Correlation
+library(ggplot2)
+library(reshape) # to generate input for the plot
+
+corelation_matrix <- round(
+  cor(na.omit(Life_Expectancy_Data[,c(-1,-2,-3)])),2
+  ) # rounded correlation matrix
+
+melted_corelation_matrix <- melt(corelation_matrix)
+melted_corelation_matrix$X1 <- as.factor(melted_corelation_matrix$X1)
+melted_corelation_matrix$X2 <- as.factor(melted_corelation_matrix$X2)
+#Remove the extra white spaces and existing replace with newline for 
+#axis text optimization
+levels(melted_corelation_matrix$X1) <- gsub(
+  " ","\n", str_squish( 
+    levels(melted_corelation_matrix$X1))
+  )
+levels(melted_corelation_matrix$X2) <- gsub(
+  " ","\n", str_squish( 
+    levels(melted_corelation_matrix$X2))
+  )
+
+#Correlation plot
+ggplot(melted_corelation_matrix, aes(x = X1, y = X2, fill = value)) +
+  geom_tile() + 
+  geom_text(aes(x = X1, y = X2, label = value), size = 3) +
+  guides(fill = FALSE) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, size = 6, vjust = 0.2),
+        axis.text.y = element_text(size = 5, hjust = 0.2),
+        axis.title = element_blank())
+```
+
+The level of `Life expectancy` is highly and positively related to the `Income composition of resources`, `Schooling` and `BMI`.
+
+`Life expectancy` is related
+
+1. Strongly Positive: 
++ `Schooling`
++ `Income composition of resources`
++ `BMI`
+
+2. Weakly Positive:
++ `Total expenditure`
++ `Polio`
++ `Percentage Expenditure`
++ `Hepatitis B`
++ `GDP`
++ `Diptheria`
++ `Alcohol`.
+
+3. Weakly Negative:
++ `under-five deaths`
++ `thinness  1-19 years`
++ `thinness 5-9 years`
++ `Measles`
++ `infant deaths`
+
+4. Strongly Negative:
++ `Population`
++ `HIV/AIDS`
++ `Adult Mortality`
+
+
+\newpage
+## Data Visualization
+
+### Histograms
+
+A histogram of the `Life expectancy` variable, grouped by the `Status` variable provides an overview of the distribution of the data across the developed and developing nations. The developed nations histogram is more symmetrical as compared to the developing nations that is skewed.
+
+```{r, message=FALSE, warning=FALSE, fig.cap="Life expectancy Distribution by Status"}
+Life_Expectancy_Data %>% 
+  ggplot(aes(x = `Life expectancy`)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(Status~., scales = "free") +
+  theme_bw() 
+```
+
+The distribution of the `Life expectancy` variable across the various years is plotted and is left-skewed across the years.
+
+```{r, message=FALSE, warning=FALSE, fig.cap="Life expectancy Distribution by Year"}
+
+Life_Expectancy_Data %>% 
+  ggplot(aes(x = `Life expectancy`)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(Year~.) +
+  theme_bw() 
+```
+
+### Box plot
+
+A box plot display the distribution of the data, pointing out the upper, middle and lower quantile. The interaction between the `Year` and `Status` of country variable are made and box plots of `Life Expectancy` graphed, ordered by the median of the `Life Expectancy`.
+
+```{r, message=FALSE, warning=FALSE, fig.align='center', fig.height=12, fig.width=14, fig.cap="Year-Status Life Expectancy Box plot"}
+library(plotly)
+dat <- Life_Expectancy_Data %>%
+  mutate(inter = interaction(Year, Status))
+# interaction levels sorted by median life expectancy
+levelS <- dat %>%
+  group_by(inter) %>%
+  summarise(m = median(`Life expectancy`)) %>%
+  arrange(desc(m)) %>%
+  pull(inter)
+plot_ly(dat, x = ~`Life expectancy`, y = ~factor(inter, levelS)) %>%
+  add_boxplot() %>%
+  layout(yaxis = list(title = ""))
+```
+
+### Scatter plots
+
+The scatter plots on `Life Expenditure` against the `Total Expenditure`, `Percentage Expenditure` and `Schooling` show the trends obdserved across the extracted variables.
+The plots are grouped according to the `Status` variable to bring out the distinctions among countries.
+
+\newpage
+**Life expectancy and total expenditure.**
+
+The graph of the mean `Total expenditure` vs mean `Life expectancy` show the discord in expenditure and how they relate. Developed countries have higher mean `Life expectancy` and also higher mean `Total expenditure` as compared to their Developing counterparts.
+
+```{r, message=FALSE, warning=FALSE, fig.cap="Life Expectancy  vs total Expenditure"}
+#Life Expectancy total Expenditure
+
+Life_Expectancy_Data %>% group_by(Status, Year) %>% 
+  summarise(
+    mean_total_expenditure = mean(`Total expenditure`, na.rm = TRUE),
+    mean_life_expectancy = mean(`Life expectancy`, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(x = mean_life_expectancy, y = mean_total_expenditure, 
+             color = Year)) + geom_point(size = 2) +
+  ggrepel::geom_text_repel(aes(label = Year)) +
+  facet_wrap(Status~., scales = "free") +
+  guides(color = FALSE) + theme_bw() + 
+  theme(legend.key = element_blank())
+```
+
+
+
+\newpage
+**Life expectancy and percentage expenditure.**
+
+The graph of the mean `percentage expenditure` vs mean `Life expectancy` show how they relate. Developed countries have higher mean `Life expectancy` and also higher mean `percentage  expenditure` as compared to their Developing counterparts.
+
+```{r, message=FALSE, warning=FALSE, fig.cap="Life Expectancy vs Percentage Expenditure"}
+#Life Expectancy % expenditure
+Life_Expectancy_Data %>%  group_by(Status, Year) %>% 
+  summarise(
+    mean_perc_expenditure = mean(`percentage expenditure`, na.rm = TRUE),
+    mean_life_expectancy = mean(`Life expectancy`, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(x = mean_life_expectancy, y = mean_perc_expenditure, 
+             color = Year)) + geom_point(size = 2) +
+  ggrepel::geom_text_repel(aes(label = Year)) +
+  facet_wrap(Status~., scales = "free") +
+  guides(color = FALSE) + theme_bw() + 
+  theme(legend.key = element_blank())
+```
+\newpage
+**Life Expectancy and Schooling.**
+
+The graph of the mean `Schooling` vs mean `Life expectancy` show how they relate. Developed countries have higher mean `Life expenditure` and also higher mean `Schooling` as compared to their Developing counterparts. The visualization can be interpreted as the better the education provided, especially on healthy living within the developed countries, the better the rates of life expectancy as compared to the developing countries.
+
+```{r, message=FALSE, warning=FALSE}
+#Life Expectancy Schooling
+Life_Expectancy_Data %>% group_by(Status, Year) %>% 
+  summarise(
+    mean_schooling = mean(Schooling, na.rm = TRUE),
+    mean_life_expectancy = mean(`Life expectancy`, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(x = mean_life_expectancy, y = mean_schooling, 
+             color = Year)) + geom_point(size = 2) +
+  ggrepel::geom_text_repel(aes(label = Year)) +
+  facet_wrap(Status~., scales = "free") +
+  guides(color = FALSE) + theme_bw() + 
+  theme(legend.key = element_blank())
+```
+
+\newpage
+# Methods
+
+A multiple regression is undertaken on the data, with the `Life expectancy` as the response variable and the rest of the variables as the predictors. An analysis of variance of the model from the regression is made.
+
+## Regression
+
+The outcome for our regression model is the `Life expectancy`. A few of the explanatory variables `Country`, `Year` and `Status` are categoric, and with 193, 16 and 2 levels respectively. The rest of the variables are numeric variables.
+
+```{r, message=FALSE, warning=FALSE}
+library(broom)
+model <- lm(`Life expectancy`~.,data = Life_Expectancy_Data)
+t(glance(model))
+```
+
+The fraction of variation of the dependent variable explained by the regression line, the R squared $(R^2)$ is at 0.96 for the model. 
+
+\newpage
+The regression table from the model is: 
+
+```{r, message=FALSE, warning=FALSE}
+knitr::kable( moderndive::get_regression_table(model = model))
+```
+
+Based on the estimate column of the regression table, Afghanistan Country was the “baseline for comparison” group, therefore, the intercept term corresponds to the life expectancy for the Afghanistan country. The other values of estimate correspond to “offsets” relative to the baseline group.
+
+\newpage
+## Analysis of Variance
+
+### Stepwise selection
+
+We use the `step()` function to explore a variety of variables for our model with only the significant variables.
+
+```{r}
+model <- lm(`Life expectancy`~.,data = na.omit(Life_Expectancy_Data))
+model2 <- step(model, direction = "both")
+```
+
+\newpage
+### Summary Statistics and ANOVA
+
+```{r}
+t(glance(model2))
+```
+
+ANOVA 
+
+```{r}
+anova(model, model2)
+```
+
+The models herein are no different as we tried to compare our original model with all variables against our model with some of the significant variables.
+
+\newpage
+# Results
+
+The level of `Life expectancy` is highly and positively related to the `Income composition of resources`, `Schooling` and `BMI`. Overall, better education and higher expenditure on health creates better health care awareness by the population and better systems in place to care for the population. We were able to spot out a distinct outlier within the `2010.Developing` interaction in the `Life Expectancy` box plots.
+
+The model is 96.8% better based on the R-Squared value. The p-value of the model at 5% level shows that the model is significant. The majority of the variables' coefficients in the model are significant, with a few insignificant based on their p-values within the model. Our model is meaningful given the very low p-value on the model summary.
+
+```{r, warning=FALSE, message=FALSE}
+md <- moderndive::get_regression_table(model = model) %>% 
+  filter(p_value > 0.05) %>% 
+  select(term, estimate, std_error, statistic, p_value)
+knitr::kable(md)
+```
+
+\newpage
+## Model Residuals
+
+```{r, message=FALSE, warning=FALSE, fig.cap="Residual Plots"}
+par(mfrow = (c(2,2)))
+plot(model)#, which = 1)
+par(mfrow = (c(1,1)))
+```
+
+The diagnostic plots show that the model is not a good one:
++ The points on the `Residual vs Fitted` plot are concentrated around the zero Residual point.
++ The residuals on the `Normal Q-Q plot` are pulling away from the line, indicting the residuals do not follow a normal distribution
++ The `Scale-Location` points are scattered all over
++ The `Residual vs Leverage` points are clustered together away from the center
++ Point 1294, 2717 and 2159 are sticking out on almost all plots and they could be outliers as shown below 
+
+\newpage
+The possible outliers that were identified from within our diagnostic plots are:
+
+```{r, message=FALSE, warning=FALSE}
+car::outlierTest(model)
+```
+
+Residual autocorrelation
+
+```{r, message=FALSE, warning=FALSE}
+library(lmtest)
+dwtest(model)
+```
+There seems to be no evidence of correlation as the p-value is greater than 0.05.
+
+\newpage
+# Conclusion
+
+The multiple regression was able to provide a better model for predicting the `Life expectancy`. However, diagnostic plots pointed out a couple of non-normality within the residual. Selection of variables through step-wise selection did not provide a better model to what was earlier at hand based on the significant variables, but had a higher AIC and BIC values. The data requires further analysis and comparison for the individual variables to be able to well assess their predicatbility of the `Life expectancy`.
+
+\newpage
+# Appendix
+
+```{r}
+sessionInfo()
+```
+
+
+
